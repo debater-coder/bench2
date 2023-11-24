@@ -21,9 +21,9 @@ fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
             let r = (y as f32 / framebuffer_info.height as f32 * 256.0) as u8;
             let g = (x as f32 / framebuffer_info.width as f32 * 256.0) as u8;
             let b = 128u8;
-            raw_framebuffer[y * framebuffer_info.stride * 4 + x * 4] = r;
+            raw_framebuffer[y * framebuffer_info.stride * 4 + x * 4] = b;
             raw_framebuffer[y * framebuffer_info.stride * 4 + x * 4 + 1] = g;
-            raw_framebuffer[y * framebuffer_info.stride * 4 + x * 4 + 2] = b;
+            raw_framebuffer[y * framebuffer_info.stride * 4 + x * 4 + 2] = r;
         }
     }
 
