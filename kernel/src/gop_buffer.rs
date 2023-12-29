@@ -1,18 +1,24 @@
 use core::fmt;
 use bootloader_api::info::FrameBufferInfo;
+use lazy_static::lazy_static;
 use noto_sans_mono_bitmap::{FontWeight, get_raster, RasterHeight, get_raster_width};
-use crate::debug_log::DEBUG_PORT;
+use spin::Mutex;
 
-pub struct Writer<'a> {
+lazy_static! {
+    pub static ref WRITER: Mutex<Option<Writer>> = Mutex::new(None);
+}
+
+pub struct Writer {
     column: usize,
-    raw_framebuffer: &'a mut [u8],
+    raw_framebuffer: &'static mut [u8],
     framebuffer_info: FrameBufferInfo
 }
 
-impl Writer<'_> {
+impl Writer {
+
     /// # Safety
     /// This function is unsafe because it requires `raw_framebuffer` to point to valid memory
-    pub unsafe fn new(raw_framebuffer: &mut [u8], framebuffer_info: FrameBufferInfo) -> Writer {
+    pub unsafe fn new(raw_framebuffer: &'static mut [u8], framebuffer_info: FrameBufferInfo) -> Writer {
         Writer {
             column: 0,
             raw_framebuffer,
@@ -72,10 +78,9 @@ impl Writer<'_> {
     }
 }
 
-impl fmt::Write for Writer<'_> {
+impl fmt::Write for Writer {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.write_string(s);
-        DEBUG_PORT.lock().write_string(s);
         Ok(())
     }
 }
