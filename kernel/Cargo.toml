@@ -12,6 +12,7 @@ bench = false
 
 [dependencies]
 bootloader_api = "0.11.4"
+noto-sans-mono-bitmap = "0.2.0"
 
 [profile.dev]
 panic = "abort"
