@@ -18,12 +18,12 @@ impl Writer {
 
     /// # Safety
     /// This function is unsafe because it requires `raw_framebuffer` to point to valid memory
-    pub unsafe fn new(raw_framebuffer: &'static mut [u8], framebuffer_info: FrameBufferInfo) -> Writer {
-        Writer {
+    pub unsafe fn init(raw_framebuffer: &'static mut [u8], framebuffer_info: FrameBufferInfo) {
+        *WRITER.lock() = Some(Writer {
             column: 0,
             raw_framebuffer,
             framebuffer_info,
-        }
+        });
     }
 
     fn write_pixel(&mut self, x: usize, y: usize, pixel: u8) {
