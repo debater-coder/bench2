@@ -1,7 +1,7 @@
 use core::fmt;
-use core::fmt::Write;
 use bootloader_api::info::FrameBufferInfo;
 use noto_sans_mono_bitmap::{FontWeight, get_raster, RasterHeight, get_raster_width};
+use crate::debug_log::DEBUG_PORT;
 
 pub struct Writer<'a> {
     column: usize,
@@ -9,18 +9,17 @@ pub struct Writer<'a> {
     framebuffer_info: FrameBufferInfo
 }
 
-pub fn print_something(raw_framebuffer: &mut [u8], framebuffer_info: FrameBufferInfo) {
-    let mut writer = Writer {
-        column: 0,
-        raw_framebuffer,
-        framebuffer_info,
-    };
-
-    writer.write_string("Hello!\n");
-    write!(writer, "The numbers are {} and {}", 42, 1.0/3.0).unwrap();
-}
-
 impl Writer<'_> {
+    /// # Safety
+    /// This function is unsafe because it requires `raw_framebuffer` to point to valid memory
+    pub unsafe fn new(raw_framebuffer: &mut [u8], framebuffer_info: FrameBufferInfo) -> Writer {
+        Writer {
+            column: 0,
+            raw_framebuffer,
+            framebuffer_info,
+        }
+    }
+
     fn write_pixel(&mut self, x: usize, y: usize, pixel: u8) {
         self.raw_framebuffer[y * self.framebuffer_info.stride * 4 + x * 4] = pixel;
         self.raw_framebuffer[y * self.framebuffer_info.stride * 4 + x * 4 + 1] = pixel;
@@ -76,6 +75,7 @@ impl Writer<'_> {
 impl fmt::Write for Writer<'_> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.write_string(s);
+        DEBUG_PORT.lock().write_string(s);
         Ok(())
     }
 }

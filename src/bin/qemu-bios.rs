@@ -5,6 +5,7 @@ use std::{
 
 fn main() {
     let mut qemu = Command::new("qemu-system-x86_64");
+    qemu.arg("-debugcon").arg("stdio");
     qemu.arg("-drive");
     qemu.arg(format!("format=raw,file={}", env!("BIOS_IMAGE")));
     let exit_status = qemu.status().unwrap();
