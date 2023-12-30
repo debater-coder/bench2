@@ -3,6 +3,8 @@
 #![no_main]
 
 use crate::gop_buffer::Writer;
+use bootloader_api::config::Mapping;
+use bootloader_api::BootloaderConfig;
 use core::panic::PanicInfo;
 
 mod debug_log;
@@ -17,7 +19,13 @@ fn panic(info: &PanicInfo) -> ! {
     loop {}
 }
 
-bootloader_api::entry_point!(kernel_early);
+pub static BOOTLOADER_CONFIG: BootloaderConfig = {
+    let mut config = BootloaderConfig::new_default();
+    config.mappings.physical_memory = Some(Mapping::Dynamic);
+    config
+};
+
+bootloader_api::entry_point!(kernel_early, config = &BOOTLOADER_CONFIG);
 
 fn kernel_early(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     x86_64::instructions::interrupts::disable();
@@ -40,6 +48,8 @@ fn kernel_early(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
         "Framebuffer {:?}x{:?}",
         framebuffer_info.width, framebuffer_info.height
     );
+
+    println!("It did not crash!");
 
     loop {
         x86_64::instructions::hlt();

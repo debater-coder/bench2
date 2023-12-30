@@ -9,6 +9,7 @@ lazy_static! {
 
         idt.breakpoint.set_handler_fn(breakpoint_handler);
         idt.page_fault.set_handler_fn(page_fault_handler);
+        idt.general_protection_fault.set_handler_fn(gpf_handler);
 
         unsafe {
             idt.double_fault
@@ -48,4 +49,11 @@ extern "x86-interrupt" fn double_fault_handler(
     _error_code: u64,
 ) -> ! {
     panic!("EXCEPTION: DOUBLE FAULT\n{:#?}", stack_frame);
+}
+
+extern "x86-interrupt" fn gpf_handler(stack_frame: InterruptStackFrame, error_code: u64) {
+    panic!(
+        "EXCEPTION: GPF\n{:#?}\nError Code: {:?}",
+        stack_frame, error_code
+    );
 }
