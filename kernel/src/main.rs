@@ -20,6 +20,8 @@ fn panic(info: &PanicInfo) -> ! {
 bootloader_api::entry_point!(kernel_early);
 
 fn kernel_early(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
+    x86_64::instructions::interrupts::disable();
+
     let framebuffer = boot_info
         .framebuffer
         .as_mut()
@@ -33,13 +35,13 @@ fn kernel_early(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     gdt::init();
     interrupts::init_idt();
 
-    main();
+    println!("BenchOS 0.1.0");
+    println!(
+        "Framebuffer {:?}x{:?}",
+        framebuffer_info.width, framebuffer_info.height
+    );
 
     loop {
         x86_64::instructions::hlt();
-    } // main should never return but if it does we halt
-}
-
-fn main() {
-    println!("Hello, World!");
+    }
 }
