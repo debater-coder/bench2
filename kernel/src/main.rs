@@ -42,10 +42,4 @@ fn kernel_early(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
 
 fn main() {
     println!("Hello, World!");
-
-    fn overflow() {
-        overflow();
-    }
-
-    overflow();
 }
