@@ -22,8 +22,8 @@ struct IMCR;
 impl IMCR {
     /// See: https://zygomatic.sourceforge.net/devref/group__arch__ia32__apic.html
     fn enable_symmetric_io_mode() {
-        unsafe { Port::new(0x22).write(0x70) }; // select IMCR
-        unsafe { Port::new(0x23).write(0x01) }; // force NMI and INTR signals through the APIC
+        unsafe { Port::new(0x22).write(0x70u8) }; // select IMCR
+        unsafe { Port::new(0x23).write(0x01u8) }; // force NMI and INTR signals through the APIC
     }
 }
 

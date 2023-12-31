@@ -70,7 +70,7 @@ fn kernel_early(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     println!("Initialising heap...");
     init_heap(&mut mapper, &mut frame_allocator).expect("heap initialisation failed");
 
-    println!("Initialising APIC");
+    println!("Initialising APIC...");
     apic::init();
 
     println!("BenchOS 0.1.0");
