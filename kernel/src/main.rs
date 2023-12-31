@@ -3,14 +3,17 @@
 #![no_main]
 
 use crate::gop_buffer::Writer;
+use crate::memory::BootInfoFrameAllocator;
 use bootloader_api::config::Mapping;
 use bootloader_api::BootloaderConfig;
 use core::panic::PanicInfo;
+use x86_64::VirtAddr;
 
 mod debug_log;
 mod gdt;
 mod gop_buffer;
 mod interrupts;
+mod memory;
 
 /// This function is called on panic.
 #[panic_handler]
@@ -42,6 +45,15 @@ fn kernel_early(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
 
     gdt::init();
     interrupts::init_idt();
+    let _frame_allocator = unsafe { BootInfoFrameAllocator::new(&boot_info.memory_regions) };
+    let _mapper = unsafe {
+        memory::init(VirtAddr::new(
+            boot_info
+                .physical_memory_offset
+                .into_option()
+                .expect("Expected memory offset"),
+        ))
+    };
 
     println!("BenchOS 0.1.0");
     println!(
