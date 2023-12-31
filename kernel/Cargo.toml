@@ -18,6 +18,7 @@ log = "0.4.20"
 spin = "0.5.2"
 acpi = "5.0.0"
 linked_list_allocator = "0.10.5"
+pic8259 = "0.10.4"
 
 [dependencies.lazy_static]
 version = "1.0"
