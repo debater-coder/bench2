@@ -2,6 +2,7 @@ use core::ptr::slice_from_raw_parts_mut;
 use pic8259::ChainedPics;
 use spin::Mutex;
 use x86_64::instructions::port::Port;
+use x86_64::structures::paging::{FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB};
 use x86_64::VirtAddr;
 
 pub const SIVR_OFFSET: u64 = 0xf0;
@@ -10,7 +11,10 @@ const PIC_1_OFFSET: u8 = 32;
 const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
 /// see: https://blog.wesleyac.com/posts/ioapic-interrupts
-pub fn init(physical_memory_offset: VirtAddr) {
+pub fn init(
+    mapper: &mut impl Mapper<Size4KiB>,
+    frame_allocator: &mut impl FrameAllocator<Size4KiB>,
+) {
     // Step 1: Disable the PIC.
     unsafe {
         // This remaps it so that when we have a spurious interrupt it doesn't mess us up
@@ -24,12 +28,21 @@ pub fn init(physical_memory_offset: VirtAddr) {
     imcr.enable_symmetric_io_mode();
 
     // Step 3: Configure the "Spurious Interrupt Vector Register" of the Local APIC to 0xFF
-    let mm_region: &mut [u32] = unsafe {
-        &mut *slice_from_raw_parts_mut(
-            VirtAddr::new(0xFEE0_0000 + physical_memory_offset).as_mut_ptr(),
-            0x1000,
-        )
-    };
+    let frame = frame_allocator.allocate_frame().unwrap();
+
+    let page = Page::containing_address(VirtAddr::new(0x_4444_5000_0000));
+
+    let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_CACHE;
+
+    unsafe {
+        mapper
+            .map_to(page, frame, flags, frame_allocator)
+            .unwrap()
+            .flush();
+    }
+
+    let mm_region = slice_from_raw_parts_mut(page.start_address().as_mut_ptr(), 0x1000);
+    let mm_region = unsafe { &mut *mm_region };
 
     let mut apic = APIC { mm_region };
 
