@@ -82,6 +82,8 @@ fn kernel_early(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
 
     println!("It did not crash!");
 
+    x86_64::instructions::interrupts::enable();
+
     loop {
         x86_64::instructions::hlt();
     }

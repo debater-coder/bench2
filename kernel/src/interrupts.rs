@@ -1,4 +1,5 @@
-use crate::{gdt, print, println};
+use crate::apic::GLOBAL_APIC;
+use crate::{gdt, println};
 use lazy_static::lazy_static;
 use x86_64::instructions::hlt;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
@@ -46,7 +47,8 @@ extern "x86-interrupt" fn breakpoint_handler(interrupt_stack_frame: InterruptSta
 }
 
 extern "x86-interrupt" fn timer_handler(_interrupt_stack_frame: InterruptStackFrame) {
-    print!(".");
+    println!(".");
+    GLOBAL_APIC.lock().as_mut().unwrap().end_of_interrupt();
 }
 
 extern "x86-interrupt" fn double_fault_handler(
