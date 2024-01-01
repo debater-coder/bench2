@@ -8,6 +8,9 @@ use x86_64::structures::paging::{
 use x86_64::{PhysAddr, VirtAddr};
 
 pub const SIVR_OFFSET: u64 = 0xf0;
+pub const INITIAL_COUNT_REGISTER_OFFSET: u64 = 0x380;
+pub const LVT_TIMER_OFFSET: u64 = 0x320;
+pub const DIVIDE_CONFIG_OFFSET: u64 = 0x3e0;
 
 const PIC_1_OFFSET: u8 = 32;
 const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
@@ -49,6 +52,10 @@ pub fn init(
     let mut apic = APIC { mm_region };
 
     apic.write(SIVR_OFFSET, 0x100 | 0xff); // 0x100 sets bit 8 to enable APIC, 0xff is SPIV
+
+    // apic.write(LVT_TIMER_OFFSET, 0x30);
+    // apic.write(DIVIDE_CONFIG_OFFSET, 0x3);
+    // apic.write(INITIAL_COUNT_REGISTER_OFFSET, 0xffffffff);
 }
 
 struct APIC {

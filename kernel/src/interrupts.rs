@@ -1,4 +1,4 @@
-use crate::{gdt, println};
+use crate::{gdt, print, println};
 use lazy_static::lazy_static;
 use x86_64::instructions::hlt;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
@@ -10,6 +10,7 @@ lazy_static! {
         idt.breakpoint.set_handler_fn(breakpoint_handler);
         idt.page_fault.set_handler_fn(page_fault_handler);
         idt.general_protection_fault.set_handler_fn(gpf_handler);
+        idt[0x30].set_handler_fn(timer_handler);
 
         unsafe {
             idt.double_fault
@@ -42,6 +43,10 @@ extern "x86-interrupt" fn page_fault_handler(
 
 extern "x86-interrupt" fn breakpoint_handler(interrupt_stack_frame: InterruptStackFrame) {
     println!("EXCEPTION: BREAKPOINT\n{:#?}", interrupt_stack_frame);
+}
+
+extern "x86-interrupt" fn timer_handler(_interrupt_stack_frame: InterruptStackFrame) {
+    print!(".");
 }
 
 extern "x86-interrupt" fn double_fault_handler(
