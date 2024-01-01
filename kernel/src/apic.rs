@@ -2,8 +2,10 @@ use core::ptr::slice_from_raw_parts_mut;
 use pic8259::ChainedPics;
 use spin::Mutex;
 use x86_64::instructions::port::Port;
-use x86_64::structures::paging::{FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB};
-use x86_64::VirtAddr;
+use x86_64::structures::paging::{
+    FrameAllocator, Mapper, Page, PageTableFlags, PhysFrame, Size4KiB,
+};
+use x86_64::{PhysAddr, VirtAddr};
 
 pub const SIVR_OFFSET: u64 = 0xf0;
 
@@ -28,7 +30,7 @@ pub fn init(
     imcr.enable_symmetric_io_mode();
 
     // Step 3: Configure the "Spurious Interrupt Vector Register" of the Local APIC to 0xFF
-    let frame = frame_allocator.allocate_frame().unwrap();
+    let frame = PhysFrame::containing_address(PhysAddr::new(0xFEE0_0000));
 
     let page = Page::containing_address(VirtAddr::new(0x_4444_5000_0000));
 
@@ -46,7 +48,7 @@ pub fn init(
 
     let mut apic = APIC { mm_region };
 
-    apic.write(SIVR_OFFSET, 0xff);
+    apic.write(SIVR_OFFSET, 0x100 | 0xff); // 0x100 sets bit 8 to enable APIC, 0xff is SPIV
 }
 
 struct APIC {
