@@ -72,11 +72,6 @@ fn kernel_early(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
             .expect("Expected memory offset"),
     ));
 
-    println!(
-        "Offset {:x}",
-        boot_info.physical_memory_offset.into_option().unwrap()
-    );
-
     println!("Initialising heap...");
     init_heap().expect("heap initialisation failed");
 

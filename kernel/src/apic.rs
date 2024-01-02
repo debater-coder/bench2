@@ -1,4 +1,5 @@
 use crate::memory::{FRAME_ALLOCATOR, MAPPER};
+use crate::println;
 use crate::virtual_addresses::LAPIC_START;
 use acpi::InterruptModel;
 use alloc::alloc::Global;
@@ -23,14 +24,23 @@ const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 pub static GLOBAL_LAPIC: Mutex<Option<LAPIC>> = Mutex::new(None);
 
 pub fn init(interrupt_model: &InterruptModel<Global>) {
-    let (lapic_base) = match interrupt_model {
-        InterruptModel::Apic(apic_info) => (apic_info.local_apic_address),
+    // The following section uses the overall steps from: https://blog.wesleyac.com/posts/ioapic-interrupts
+
+    let (lapic_base, ioapics) = match interrupt_model {
+        InterruptModel::Apic(apic_info) => ((&apic_info).local_apic_address, &apic_info.io_apics),
         _ => {
             panic!("interrupt model is not apic")
         }
     };
 
-    // The following section uses the ordering from: https://blog.wesleyac.com/posts/ioapic-interrupts
+    for ioapic in ioapics.iter() {
+        println!("IOAPIC #{:?}:", ioapic.id);
+        println!(
+            "    Global System Interrupt Base: {:?}",
+            ioapic.global_system_interrupt_base
+        );
+        println!("    Address 0x{:x}", ioapic.address);
+    }
 
     // Step 1: Disable the PIC.
     unsafe {
@@ -50,12 +60,14 @@ pub fn init(interrupt_model: &InterruptModel<Global>) {
     let mut apic = GLOBAL_LAPIC.lock();
     let apic = apic.as_mut().unwrap();
 
-    // Step 6. Enable the APIC by setting the 11th bit of the APIC base MSR (0x1B)
+    // Step 5:
+
+    // Step 6: Enable the APIC by setting the 11th bit of the APIC base MSR (0x1B)
     let mut apic_base_msr = Msr::new(0x1b);
     unsafe { apic_base_msr.write(apic_base_msr.read() | (1 << 11)) };
 
     // Configure timer
-    apic.configure_timer(0x30, 0xfffff, TimerDivideConfig::DivideBy16);
+    apic.configure_timer(0x30, 0xffffff, TimerDivideConfig::DivideBy16);
 }
 
 #[allow(dead_code)]

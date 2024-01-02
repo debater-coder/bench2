@@ -1,7 +1,7 @@
-use core::fmt;
 use bootloader_api::info::FrameBufferInfo;
+use core::fmt;
 use lazy_static::lazy_static;
-use noto_sans_mono_bitmap::{FontWeight, get_raster, RasterHeight, get_raster_width};
+use noto_sans_mono_bitmap::{get_raster, get_raster_width, FontWeight, RasterHeight};
 use spin::Mutex;
 
 lazy_static! {
@@ -11,11 +11,10 @@ lazy_static! {
 pub struct Writer {
     column: usize,
     raw_framebuffer: &'static mut [u8],
-    framebuffer_info: FrameBufferInfo
+    framebuffer_info: FrameBufferInfo,
 }
 
 impl Writer {
-
     /// # Safety
     /// This function is unsafe because it requires `raw_framebuffer` to point to valid memory
     pub unsafe fn init(raw_framebuffer: &'static mut [u8], framebuffer_info: FrameBufferInfo) {
@@ -36,14 +35,18 @@ impl Writer {
         match character {
             '\n' => self.new_line(),
             character => {
-                if self.column >= self.framebuffer_info.width {
+                if self.column + 16 >= self.framebuffer_info.width {
                     self.new_line();
                 }
 
                 let y = self.framebuffer_info.height - 16;
                 let x = self.column;
 
-                let char_raster = get_raster(character, FontWeight::Regular, RasterHeight::Size16).unwrap_or(get_raster('?', FontWeight::Regular, RasterHeight::Size16).expect("fallback char not supported"));
+                let char_raster = get_raster(character, FontWeight::Regular, RasterHeight::Size16)
+                    .unwrap_or(
+                        get_raster('?', FontWeight::Regular, RasterHeight::Size16)
+                            .expect("fallback char not supported"),
+                    );
 
                 for (row_i, row) in char_raster.raster().iter().enumerate() {
                     for (col_i, pixel) in row.iter().enumerate() {

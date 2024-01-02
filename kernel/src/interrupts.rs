@@ -1,5 +1,5 @@
 use crate::apic::GLOBAL_LAPIC;
-use crate::{gdt, println};
+use crate::{gdt, print, println};
 use lazy_static::lazy_static;
 use x86_64::instructions::hlt;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
@@ -47,7 +47,7 @@ extern "x86-interrupt" fn breakpoint_handler(interrupt_stack_frame: InterruptSta
 }
 
 extern "x86-interrupt" fn timer_handler(_interrupt_stack_frame: InterruptStackFrame) {
-    println!(".");
+    print!(".");
     GLOBAL_LAPIC.lock().as_mut().unwrap().end_of_interrupt();
 }
 
