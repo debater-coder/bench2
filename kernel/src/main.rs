@@ -1,5 +1,6 @@
 #![feature(asm_const)]
 #![feature(abi_x86_interrupt)]
+#![feature(allocator_api)]
 #![no_std]
 #![no_main]
 
@@ -9,7 +10,7 @@ use crate::allocator::init_heap;
 use crate::bench_acpi::BenchAcpiHandler;
 use crate::gop_buffer::Writer;
 use crate::memory::BootInfoFrameAllocator;
-use acpi::{AcpiTables, InterruptModel};
+use acpi::AcpiTables;
 use bootloader_api::config::Mapping;
 use bootloader_api::BootloaderConfig;
 use core::panic::PanicInfo;
@@ -96,17 +97,8 @@ fn kernel_early(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
 
     let platform_info = acpi_tables.platform_info().unwrap();
 
-    match platform_info.interrupt_model {
-        InterruptModel::Apic(apic_info) => {
-            println!("Local apic address: {:x}", apic_info.local_apic_address);
-        }
-        _ => {
-            panic!("No APIC")
-        }
-    }
-
     println!("Initialising APIC...");
-    apic::init();
+    apic::init(&platform_info.interrupt_model);
 
     println!("BenchOS 0.1.0");
     println!(

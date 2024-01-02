@@ -1,5 +1,7 @@
 use crate::memory::{FRAME_ALLOCATOR, MAPPER};
 use crate::virtual_addresses::LAPIC_START;
+use acpi::InterruptModel;
+use alloc::alloc::Global;
 use core::ptr::slice_from_raw_parts_mut;
 use pic8259::ChainedPics;
 use spin::Mutex;
@@ -7,8 +9,6 @@ use x86_64::instructions::port::Port;
 use x86_64::registers::model_specific::Msr;
 use x86_64::structures::paging::{Mapper, Page, PageTableFlags, PhysFrame, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};
-
-// https://forum.osdev.org/viewtopic.php?f=1&t=12045&hilit=APIC+init
 
 pub const SIVR_OFFSET: u64 = 0xf0;
 pub const DESTINATION_FORMAT_OFFSET: u64 = 0xe0;
@@ -22,8 +22,16 @@ const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
 pub static GLOBAL_LAPIC: Mutex<Option<LAPIC>> = Mutex::new(None);
 
-/// see: https://blog.wesleyac.com/posts/ioapic-interrupts
-pub fn init() {
+pub fn init(interrupt_model: &InterruptModel<Global>) {
+    let (lapic_base) = match interrupt_model {
+        InterruptModel::Apic(apic_info) => (apic_info.local_apic_address),
+        _ => {
+            panic!("interrupt model is not apic")
+        }
+    };
+
+    // The following section uses the ordering from: https://blog.wesleyac.com/posts/ioapic-interrupts
+
     // Step 1: Disable the PIC.
     unsafe {
         // This remaps it so that when we have a spurious interrupt it doesn't mess us up
@@ -37,7 +45,7 @@ pub fn init() {
     imcr.enable_symmetric_io_mode();
 
     // Step 3: Configure the "Spurious Interrupt Vector Register" of the Local APIC to 0xFF
-    LAPIC::init(0xff);
+    LAPIC::init(lapic_base, 0xff);
 
     let mut apic = GLOBAL_LAPIC.lock();
     let apic = apic.as_mut().unwrap();
@@ -50,6 +58,7 @@ pub fn init() {
     apic.configure_timer(0x30, 0xfffff, TimerDivideConfig::DivideBy16);
 }
 
+#[allow(dead_code)]
 enum TimerDivideConfig {
     DivideBy2 = 0b0000,
     DivideBy4 = 0b0001,
@@ -70,12 +79,12 @@ impl LAPIC {
         self.write(0xB0, 0);
     }
 
-    fn init(spurious_interrupt_vector: u8) {
+    fn init(base_address: u64, spurious_interrupt_vector: u8) {
         if GLOBAL_LAPIC.lock().is_some() {
             panic!("APIC must only be initialised once");
         }
 
-        let frame: PhysFrame<Size4KiB> = PhysFrame::containing_address(PhysAddr::new(0xFEE0_0000));
+        let frame: PhysFrame<Size4KiB> = PhysFrame::containing_address(PhysAddr::new(base_address));
 
         let page: Page<Size4KiB> = Page::containing_address(VirtAddr::new(LAPIC_START as u64));
 
@@ -98,6 +107,8 @@ impl LAPIC {
         let mm_region = unsafe { &mut *mm_region };
 
         let mut apic = LAPIC { mm_region };
+
+        // https://forum.osdev.org/viewtopic.php?f=1&t=12045&hilit=APIC+init
 
         apic.write(SIVR_OFFSET, 0x100 | (spurious_interrupt_vector as u32)); // 0x100 sets bit 8 to enable APIC
 
