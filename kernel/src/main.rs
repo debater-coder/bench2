@@ -9,7 +9,7 @@ use crate::allocator::init_heap;
 use crate::bench_acpi::BenchAcpiHandler;
 use crate::gop_buffer::Writer;
 use crate::memory::BootInfoFrameAllocator;
-use acpi::AcpiTables;
+use acpi::{AcpiTables, InterruptModel};
 use bootloader_api::config::Mapping;
 use bootloader_api::BootloaderConfig;
 use core::panic::PanicInfo;
@@ -34,7 +34,7 @@ fn panic(info: &PanicInfo) -> ! {
 
 pub static BOOTLOADER_CONFIG: BootloaderConfig = {
     let mut config = BootloaderConfig::new_default();
-    config.mappings.physical_memory = Some(Mapping::Dynamic);
+    config.mappings.physical_memory = Some(Mapping::FixedAddress(0x20000000000));
     config
 };
 
@@ -81,7 +81,7 @@ fn kernel_early(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
 
     let acpi_handler = BenchAcpiHandler::new();
 
-    let _acpi_tables = unsafe {
+    let acpi_tables = unsafe {
         AcpiTables::from_rsdp(
             acpi_handler,
             boot_info
@@ -93,6 +93,17 @@ fn kernel_early(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
         )
         .expect("rsdp init failed")
     };
+
+    let platform_info = acpi_tables.platform_info().unwrap();
+
+    match platform_info.interrupt_model {
+        InterruptModel::Apic(apic_info) => {
+            println!("Local apic address: {:x}", apic_info.local_apic_address);
+        }
+        _ => {
+            panic!("No APIC")
+        }
+    }
 
     println!("Initialising APIC...");
     apic::init();

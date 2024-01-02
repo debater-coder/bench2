@@ -1,12 +1,12 @@
+use crate::gop_buffer::WRITER;
 use core::fmt;
 use core::fmt::Write;
 use lazy_static::lazy_static;
-use x86_64::instructions::port::Port;
 use spin::Mutex;
-use crate::gop_buffer::WRITER;
+use x86_64::instructions::port::Port;
 
 pub struct DebugPort {
-    port: Port<u8>
+    port: Port<u8>,
 }
 
 lazy_static! {
@@ -47,10 +47,10 @@ macro_rules! println {
 
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
-    let mut writer = WRITER.lock();
+    DEBUG_PORT.lock().write_fmt(args).unwrap();
 
+    let mut writer = WRITER.lock();
     if let Some(writer) = writer.as_mut() {
         writer.write_fmt(args).unwrap();
     }
-    DEBUG_PORT.lock().write_fmt(args).unwrap();
 }

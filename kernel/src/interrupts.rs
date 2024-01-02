@@ -1,4 +1,4 @@
-use crate::apic::GLOBAL_APIC;
+use crate::apic::GLOBAL_LAPIC;
 use crate::{gdt, println};
 use lazy_static::lazy_static;
 use x86_64::instructions::hlt;
@@ -48,7 +48,7 @@ extern "x86-interrupt" fn breakpoint_handler(interrupt_stack_frame: InterruptSta
 
 extern "x86-interrupt" fn timer_handler(_interrupt_stack_frame: InterruptStackFrame) {
     println!(".");
-    GLOBAL_APIC.lock().as_mut().unwrap().end_of_interrupt();
+    GLOBAL_LAPIC.lock().as_mut().unwrap().end_of_interrupt();
 }
 
 extern "x86-interrupt" fn double_fault_handler(
