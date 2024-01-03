@@ -2,6 +2,7 @@ use crate::apic::GLOBAL_LAPIC;
 use crate::{gdt, print, println};
 use lazy_static::lazy_static;
 use x86_64::instructions::hlt;
+use x86_64::instructions::port::Port;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
 lazy_static! {
@@ -12,6 +13,7 @@ lazy_static! {
         idt.page_fault.set_handler_fn(page_fault_handler);
         idt.general_protection_fault.set_handler_fn(gpf_handler);
         idt[0x30].set_handler_fn(timer_handler);
+        idt[0x41].set_handler_fn(keyboard_handler);
 
         unsafe {
             idt.double_fault
@@ -40,6 +42,14 @@ extern "x86-interrupt" fn page_fault_handler(
     loop {
         hlt()
     }
+}
+
+extern "x86-interrupt" fn keyboard_handler(_interrupt_stack_frame: InterruptStackFrame) {
+    let mut port = Port::new(0x60);
+    let scancode: u8 = unsafe { port.read() };
+    print!("{}", scancode);
+
+    GLOBAL_LAPIC.lock().as_mut().unwrap().end_of_interrupt();
 }
 
 extern "x86-interrupt" fn breakpoint_handler(interrupt_stack_frame: InterruptStackFrame) {
