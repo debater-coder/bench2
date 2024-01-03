@@ -11,6 +11,7 @@ use x86_64::registers::model_specific::Msr;
 use x86_64::structures::paging::{Mapper, Page, PageTableFlags, PhysFrame, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};
 
+pub const LAPIC_ID_OFFSET: u64 = 0x20;
 pub const SIVR_OFFSET: u64 = 0xf0;
 pub const DESTINATION_FORMAT_OFFSET: u64 = 0xe0;
 pub const TASK_PRIORITY_OFFSET: u64 = 0x80;
@@ -21,26 +22,43 @@ pub const DIVIDE_CONFIG_OFFSET: u64 = 0x3e0;
 const PIC_1_OFFSET: u8 = 32;
 const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
+#[allow(dead_code)]
+enum IsaIrq {
+    PitTimer = 0,
+    Keyboard = 1,
+    Com2 = 3,
+    Com1 = 4,
+    Lpt2 = 5,
+    FloppyDisk = 6,
+    Isa7 = 7,
+    Rtc = 8,
+    Isa9 = 9,
+    Isa10 = 10,
+    Isa11 = 11,
+    Mouse = 12,
+    Isa13 = 13,
+    PrimaryAta = 14,
+    SecondaryAta = 15,
+}
+
 pub static GLOBAL_LAPIC: Mutex<Option<LAPIC>> = Mutex::new(None);
 
 pub fn init(interrupt_model: &InterruptModel<Global>) {
     // The following section uses the overall steps from: https://blog.wesleyac.com/posts/ioapic-interrupts
 
-    let (lapic_base, ioapics) = match interrupt_model {
-        InterruptModel::Apic(apic_info) => ((&apic_info).local_apic_address, &apic_info.io_apics),
+    let (lapic_base, ioapics, interrupt_source_overrides) = match interrupt_model {
+        InterruptModel::Apic(apic_info) => (
+            (&apic_info).local_apic_address,
+            &apic_info.io_apics,
+            &apic_info.interrupt_source_overrides,
+        ),
         _ => {
             panic!("interrupt model is not apic")
         }
     };
 
-    for ioapic in ioapics.iter() {
-        println!("IOAPIC #{:?}:", ioapic.id);
-        println!(
-            "    Global System Interrupt Base: {:?}",
-            ioapic.global_system_interrupt_base
-        );
-        println!("    Address 0x{:x}", ioapic.address);
-    }
+    // Both QEMU and my test system only have one IOAPIC so this is fine for now.
+    let ioapic = &ioapics[0];
 
     // Step 1: Disable the PIC.
     unsafe {
@@ -60,7 +78,25 @@ pub fn init(interrupt_model: &InterruptModel<Global>) {
     let mut apic = GLOBAL_LAPIC.lock();
     let apic = apic.as_mut().unwrap();
 
-    // Step 5:
+    // Step 4: read all of the Interrupt Source Override entries - if the IRQ source of any of them is 1 (Keyboard) use that in IOREDTBL
+    let keyboard_gsi = interrupt_source_overrides
+        .iter()
+        .filter_map(|interrupt_source_override| {
+            if interrupt_source_override.isa_source == (IsaIrq::Keyboard as u8) {
+                Some(interrupt_source_override.global_system_interrupt)
+            } else {
+                None
+            }
+        })
+        .next()
+        .unwrap_or(ioapic.global_system_interrupt_base + (IsaIrq::Keyboard as u32)); // An educated guess is that it is connected to the IOAPIC pin corresponding to its usual PIC pin
+
+    if keyboard_gsi < ioapic.global_system_interrupt_base {
+        panic!("No IOAPIC connected to keyboard");
+    }
+
+    // Step 5: Configure the IOREDTBL entry in registers 0x12 and 0x13 (unless you need to use a different one, per the above step)
+    println!("Using GSI #{:?} for keyboard", keyboard_gsi);
 
     // Step 6: Enable the APIC by setting the 11th bit of the APIC base MSR (0x1B)
     let mut apic_base_msr = Msr::new(0x1b);
@@ -89,6 +125,11 @@ pub struct LAPIC {
 impl LAPIC {
     pub fn end_of_interrupt(&mut self) {
         self.write(0xB0, 0);
+    }
+
+    #[allow(dead_code)]
+    fn lapic_id(&self) -> u32 {
+        self.read(LAPIC_ID_OFFSET)
     }
 
     fn init(base_address: u64, spurious_interrupt_vector: u8) {
