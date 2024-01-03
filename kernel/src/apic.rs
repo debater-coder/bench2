@@ -1,6 +1,6 @@
 use crate::memory::{FRAME_ALLOCATOR, MAPPER};
-use crate::println;
-use crate::virtual_addresses::LAPIC_START;
+use crate::virtual_addresses::{IOAPIC_START, LAPIC_START};
+use acpi::platform::interrupt::IoApic;
 use acpi::InterruptModel;
 use alloc::alloc::Global;
 use core::ptr::slice_from_raw_parts_mut;
@@ -96,7 +96,7 @@ pub fn init(interrupt_model: &InterruptModel<Global>) {
     }
 
     // Step 5: Configure the IOREDTBL entry in registers 0x12 and 0x13 (unless you need to use a different one, per the above step)
-    println!("Using GSI #{:?} for keyboard", keyboard_gsi);
+    let _ioapic = IOAPIC::new(ioapic);
 
     // Step 6: Enable the APIC by setting the 11th bit of the APIC base MSR (0x1B)
     let mut apic_base_msr = Msr::new(0x1b);
@@ -214,3 +214,52 @@ impl IMCR {
 
 pub static PICS: Mutex<ChainedPics> =
     Mutex::new(unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) });
+
+struct IOAPIC {
+    ioregsel: &'static mut u32,
+    iowin: &'static mut u32,
+}
+
+impl IOAPIC {
+    fn read(&mut self, offset: u8) -> u32 {
+        *self.ioregsel = offset as u32;
+        *self.iowin
+    }
+
+    fn write(&mut self, offset: u8, value: u32) {
+        *self.ioregsel = offset as u32;
+        *self.iowin = value;
+    }
+
+    fn new(io_apic: &IoApic) -> Self {
+        let base_address = io_apic.address;
+
+        let frame: PhysFrame<Size4KiB> =
+            PhysFrame::containing_address(PhysAddr::new(base_address as u64));
+
+        let page: Page<Size4KiB> = Page::containing_address(VirtAddr::new(IOAPIC_START as u64));
+
+        let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_CACHE;
+
+        let mut mutex_guard = FRAME_ALLOCATOR.lock();
+        let frame_allocator = mutex_guard.as_mut().unwrap();
+
+        let mut mutex_guard = MAPPER.lock();
+        let mapper = mutex_guard.as_mut().unwrap();
+
+        unsafe {
+            mapper
+                .map_to(page, frame, flags, frame_allocator)
+                .unwrap()
+                .flush();
+        }
+
+        let ioregsel: *mut u32 = VirtAddr::new(IOAPIC_START as u64).as_mut_ptr();
+        let ioregsel = unsafe { &mut *ioregsel };
+
+        let iowin: *mut u32 = VirtAddr::new((IOAPIC_START as u64) + 10).as_mut_ptr();
+        let iowin = unsafe { &mut *iowin };
+
+        IOAPIC { ioregsel, iowin }
+    }
+}
