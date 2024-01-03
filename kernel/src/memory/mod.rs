@@ -4,6 +4,10 @@ use x86_64::registers::control::Cr3;
 use x86_64::structures::paging::{FrameAllocator, OffsetPageTable, PageTable, PhysFrame, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};
 
+pub mod allocator;
+pub mod gdt;
+pub mod virtual_addresses;
+
 pub static FRAME_ALLOCATOR: Mutex<Option<BootInfoFrameAllocator>> = Mutex::new(None);
 pub static MAPPER: Mutex<Option<OffsetPageTable>> = Mutex::new(None);
 

@@ -1,5 +1,6 @@
 use crate::apic::GLOBAL_LAPIC;
-use crate::{gdt, print, println};
+use crate::memory::gdt;
+use crate::{print, println};
 use lazy_static::lazy_static;
 use x86_64::instructions::hlt;
 use x86_64::instructions::port::Port;

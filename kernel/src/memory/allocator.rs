@@ -1,5 +1,5 @@
+use crate::memory::virtual_addresses::HEAP_START;
 use crate::memory::{FRAME_ALLOCATOR, MAPPER};
-use crate::virtual_addresses::HEAP_START;
 use linked_list_allocator::LockedHeap;
 use x86_64::structures::paging::mapper::MapToError;
 use x86_64::structures::paging::{FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB};

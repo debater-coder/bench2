@@ -3,24 +3,22 @@
 #![feature(abi_x86_interrupt)]
 #![feature(allocator_api)]
 
-use crate::allocator::init_heap;
 use crate::bench_acpi::BenchAcpiHandler;
 use crate::gop_buffer::Writer;
 use crate::memory::BootInfoFrameAllocator;
 use acpi::AcpiTables;
+use memory::allocator::init_heap;
+use memory::gdt;
 use x86_64::VirtAddr;
 
 extern crate alloc;
 
-mod allocator;
 mod apic;
 mod bench_acpi;
 pub mod debug_log;
-mod gdt;
 mod gop_buffer;
 mod interrupts;
 mod memory;
-mod virtual_addresses;
 
 pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
     x86_64::instructions::interrupts::disable();

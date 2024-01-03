@@ -1,5 +1,5 @@
+use crate::memory::virtual_addresses::{IOAPIC_START, LAPIC_START};
 use crate::memory::{FRAME_ALLOCATOR, MAPPER};
-use crate::virtual_addresses::{IOAPIC_START, LAPIC_START};
 use acpi::platform::interrupt::IoApic;
 use acpi::InterruptModel;
 use alloc::alloc::Global;
