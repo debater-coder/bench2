@@ -1,4 +1,4 @@
-use crate::memory::MAPPER;
+use crate::memory::mapper::MAPPER;
 use acpi::{AcpiHandler, PhysicalMapping};
 use core::ptr::NonNull;
 

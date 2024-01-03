@@ -5,11 +5,7 @@
 
 use crate::bench_acpi::BenchAcpiHandler;
 use crate::gop_buffer::Writer;
-use crate::memory::BootInfoFrameAllocator;
 use acpi::AcpiTables;
-use memory::allocator::init_heap;
-use memory::gdt;
-use x86_64::VirtAddr;
 
 extern crate alloc;
 
@@ -33,17 +29,15 @@ pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
 
     unsafe { Writer::init(raw_framebuffer, framebuffer_info) };
 
-    gdt::init();
-    interrupts::init_idt();
-    BootInfoFrameAllocator::init(&boot_info.memory_regions);
-    memory::init(VirtAddr::new(
+    memory::init(
         boot_info
             .physical_memory_offset
             .into_option()
-            .expect("Expected memory offset"),
-    ));
+            .expect("no physical memory offset"),
+        &boot_info.memory_regions,
+    );
 
-    init_heap().expect("heap initialisation failed");
+    interrupts::init_idt();
 
     let acpi_handler = BenchAcpiHandler::new();
 
