@@ -1,5 +1,4 @@
 use crate::memory::{FRAME_ALLOCATOR, MAPPER};
-use crate::println;
 use crate::virtual_addresses::{IOAPIC_START, LAPIC_START};
 use acpi::platform::interrupt::IoApic;
 use acpi::InterruptModel;
@@ -224,11 +223,13 @@ struct IOAPIC {
     iowin: &'static mut u32,
 }
 
+#[allow(dead_code)]
 enum DestinationMode {
     Physical = 0,
     Logical = 1,
 }
 
+#[allow(dead_code)]
 enum PinPolarity {
     ActiveHigh = 0,
     ActiveLow = 1,
@@ -253,8 +254,6 @@ impl IOAPIC {
             | (((destination_mode & 0b1) as u64) << 11)
             | (((pin_polarity & 0b1) as u64) << 13)
             | (((lapic_id & 0xf) as u64) << 56);
-
-        println!("IOREDTBL: {:x}", ioredtbl);
 
         self.write(low_offset, ioredtbl as u32);
         self.write(high_offset, (ioredtbl >> 32) as u32)
