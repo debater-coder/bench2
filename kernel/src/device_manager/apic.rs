@@ -1,5 +1,4 @@
-use crate::memory::frame_allocator::FRAME_ALLOCATOR;
-use crate::memory::mapper::MAPPER;
+use crate::memory::frame_allocator::BootInfoFrameAllocator;
 use crate::memory::virtual_addresses::{IOAPIC_START, LAPIC_START};
 use acpi::platform::interrupt::IoApic;
 use acpi::InterruptModel;
@@ -9,7 +8,9 @@ use pic8259::ChainedPics;
 use spin::Mutex;
 use x86_64::instructions::port::Port;
 use x86_64::registers::model_specific::Msr;
-use x86_64::structures::paging::{Mapper, Page, PageTableFlags, PhysFrame, Size4KiB};
+use x86_64::structures::paging::{
+    Mapper, OffsetPageTable, Page, PageTableFlags, PhysFrame, Size4KiB,
+};
 use x86_64::{PhysAddr, VirtAddr};
 
 pub const LAPIC_ID_OFFSET: u64 = 0x20;
@@ -44,7 +45,11 @@ enum IsaIrq {
 
 pub static GLOBAL_LAPIC: Mutex<Option<LAPIC>> = Mutex::new(None);
 
-pub fn init(interrupt_model: &InterruptModel<Global>) {
+pub fn init(
+    frame_allocator: &mut BootInfoFrameAllocator,
+    mapper: &mut OffsetPageTable<'static>,
+    interrupt_model: &InterruptModel<Global>,
+) {
     // The following section uses the overall steps from: https://blog.wesleyac.com/posts/ioapic-interrupts
 
     let (lapic_base, ioapics, interrupt_source_overrides) = match interrupt_model {
@@ -74,7 +79,7 @@ pub fn init(interrupt_model: &InterruptModel<Global>) {
     imcr.enable_symmetric_io_mode();
 
     // Step 3: Configure the "Spurious Interrupt Vector Register" of the Local APIC to 0xFF
-    LAPIC::init(lapic_base, 0xff);
+    LAPIC::init(frame_allocator, mapper, lapic_base, 0xff);
 
     let mut apic = GLOBAL_LAPIC.lock();
     let apic = apic.as_mut().unwrap();
@@ -99,7 +104,7 @@ pub fn init(interrupt_model: &InterruptModel<Global>) {
     let gsi_base = ioapic.global_system_interrupt_base;
 
     // Step 5: Configure the IOREDTBL entry in registers 0x12 and 0x13 (unless you need to use a different one, per the above step)
-    let mut ioapic = IOAPIC::new(ioapic);
+    let mut ioapic = IOAPIC::new(frame_allocator, mapper, ioapic);
     ioapic.set_ioredtbl((keyboard_gsi - gsi_base) as u8, 0x41, apic.lapic_id());
 
     // Step 6: Enable the APIC by setting the 11th bit of the APIC base MSR (0x1B)
@@ -136,7 +141,12 @@ impl LAPIC {
         ((self.read(LAPIC_ID_OFFSET)) >> 24) as u8
     }
 
-    fn init(base_address: u64, spurious_interrupt_vector: u8) {
+    fn init(
+        frame_allocator: &mut BootInfoFrameAllocator,
+        mapper: &mut OffsetPageTable<'static>,
+        base_address: u64,
+        spurious_interrupt_vector: u8,
+    ) {
         if GLOBAL_LAPIC.lock().is_some() {
             panic!("APIC must only be initialised once");
         }
@@ -146,12 +156,6 @@ impl LAPIC {
         let page: Page<Size4KiB> = Page::containing_address(VirtAddr::new(LAPIC_START as u64));
 
         let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_CACHE;
-
-        let mut mutex_guard = FRAME_ALLOCATOR.lock();
-        let frame_allocator = mutex_guard.as_mut().unwrap();
-
-        let mut mutex_guard = MAPPER.lock();
-        let mapper = mutex_guard.as_mut().unwrap();
 
         unsafe {
             mapper
@@ -270,7 +274,11 @@ impl IOAPIC {
         *self.iowin = value;
     }
 
-    fn new(io_apic: &IoApic) -> Self {
+    fn new(
+        frame_allocator: &mut BootInfoFrameAllocator,
+        mapper: &mut OffsetPageTable<'static>,
+        io_apic: &IoApic,
+    ) -> Self {
         let base_address = io_apic.address;
 
         let frame: PhysFrame<Size4KiB> =
@@ -279,12 +287,6 @@ impl IOAPIC {
         let page: Page<Size4KiB> = Page::containing_address(VirtAddr::new(IOAPIC_START as u64));
 
         let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_CACHE;
-
-        let mut mutex_guard = FRAME_ALLOCATOR.lock();
-        let frame_allocator = mutex_guard.as_mut().unwrap();
-
-        let mut mutex_guard = MAPPER.lock();
-        let mapper = mutex_guard.as_mut().unwrap();
 
         unsafe {
             mapper

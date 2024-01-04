@@ -1,4 +1,4 @@
-use crate::apic::GLOBAL_LAPIC;
+use crate::device_manager::apic::GLOBAL_LAPIC;
 use crate::memory::gdt;
 use crate::{print, println};
 use lazy_static::lazy_static;

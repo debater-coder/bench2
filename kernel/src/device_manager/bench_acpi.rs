@@ -1,13 +1,15 @@
-use crate::memory::mapper::MAPPER;
 use acpi::{AcpiHandler, PhysicalMapping};
 use core::ptr::NonNull;
+use x86_64::VirtAddr;
 
 #[derive(Clone)]
-pub struct BenchAcpiHandler;
+pub struct BenchAcpiHandler {
+    phys_offset: VirtAddr,
+}
 
 impl BenchAcpiHandler {
-    pub fn new() -> Self {
-        BenchAcpiHandler
+    pub fn new(phys_offset: VirtAddr) -> Self {
+        BenchAcpiHandler { phys_offset }
     }
 }
 
@@ -17,12 +19,9 @@ impl AcpiHandler for BenchAcpiHandler {
         physical_address: usize,
         size: usize,
     ) -> PhysicalMapping<Self, T> {
-        let mut mutex_guard = MAPPER.lock();
-        let mapper = mutex_guard.as_mut().unwrap();
-
         PhysicalMapping::new(
             physical_address,
-            NonNull::new((mapper.phys_offset() + physical_address).as_mut_ptr()).unwrap(),
+            NonNull::new((self.phys_offset + physical_address).as_mut_ptr()).unwrap(),
             size,
             size,
             self.clone(),

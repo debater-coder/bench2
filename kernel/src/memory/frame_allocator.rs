@@ -1,9 +1,6 @@
 use bootloader_api::info::{MemoryRegionKind, MemoryRegions};
-use spin::Mutex;
 use x86_64::structures::paging::{FrameAllocator, PhysFrame, Size4KiB};
 use x86_64::PhysAddr;
-
-pub static FRAME_ALLOCATOR: Mutex<Option<BootInfoFrameAllocator>> = Mutex::new(None);
 
 pub struct BootInfoFrameAllocator {
     next: usize,
@@ -30,14 +27,11 @@ impl BootInfoFrameAllocator {
 
         available_frames
     }
-    pub fn init(memory_regions: &'static MemoryRegions) {
-        if FRAME_ALLOCATOR.lock().is_some() {
-            panic!("Frame allocator must only be initialised once");
-        }
-        *FRAME_ALLOCATOR.lock() = Some(BootInfoFrameAllocator {
+    pub unsafe fn new(memory_regions: &'static MemoryRegions) -> Self {
+        BootInfoFrameAllocator {
             next: 0,
             memory_regions,
-        });
+        }
     }
 }
 

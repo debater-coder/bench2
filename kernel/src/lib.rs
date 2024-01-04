@@ -3,20 +3,17 @@
 #![feature(abi_x86_interrupt)]
 #![feature(allocator_api)]
 
-use crate::bench_acpi::BenchAcpiHandler;
+use crate::device_manager::DeviceManager;
 use crate::gop_buffer::Writer;
-use acpi::AcpiTables;
 
 extern crate alloc;
 
-mod apic;
-mod bench_acpi;
 pub mod debug_log;
+pub mod device_manager;
 mod gop_buffer;
-mod interrupts;
 mod memory;
 
-pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
+pub fn init(boot_info: &'static mut bootloader_api::BootInfo) -> DeviceManager {
     x86_64::instructions::interrupts::disable();
 
     let framebuffer = boot_info
@@ -29,7 +26,9 @@ pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
 
     unsafe { Writer::init(raw_framebuffer, framebuffer_info) };
 
-    memory::init(
+    device_manager::interrupts::init_idt();
+
+    let (frame_allocator, mapper) = memory::init(
         boot_info
             .physical_memory_offset
             .into_option()
@@ -37,24 +36,13 @@ pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
         &boot_info.memory_regions,
     );
 
-    interrupts::init_idt();
+    let device_manager = DeviceManager::new(
+        frame_allocator,
+        mapper,
+        boot_info.rsdp_addr.into_option().expect("no rsdp") as usize,
+    );
 
-    let acpi_handler = BenchAcpiHandler::new();
-
-    let acpi_tables = unsafe {
-        AcpiTables::from_rsdp(
-            acpi_handler,
-            boot_info
-                .rsdp_addr
-                .into_option()
-                .expect("no rsdp")
-                .try_into()
-                .unwrap(),
-        )
-        .expect("rsdp init failed")
-    };
-    let platform_info = acpi_tables.platform_info().unwrap();
-
-    apic::init(&platform_info.interrupt_model);
     x86_64::instructions::interrupts::enable();
+
+    device_manager
 }
