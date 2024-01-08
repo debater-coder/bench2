@@ -54,8 +54,14 @@ lazy_static! {
             idt.virtualization.set_handler_fn(virtualization);
         }
 
+        for irq in 0x20usize..0x30 {
+            idt[irq].set_handler_fn(spurious);
+        }
+
         idt[0x31].set_handler_fn(lapic_timer);
         idt[0x41].set_handler_fn(keyboard);
+
+        idt[0xff].set_handler_fn(spurious);
 
         idt
     };
@@ -64,6 +70,8 @@ lazy_static! {
 pub fn init_idt() {
     IDT.load();
 }
+
+extern "x86-interrupt" fn spurious(_interrupt_stack_frame: InterruptStackFrame) {}
 
 extern "x86-interrupt" fn lapic_timer(_interrupt_stack_frame: InterruptStackFrame) {
     unsafe { lapic_end_of_interrupt() }
