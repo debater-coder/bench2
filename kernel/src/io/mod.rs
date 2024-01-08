@@ -5,6 +5,7 @@ use acpi::AcpiTables;
 mod bench_acpi;
 mod drivers;
 pub(crate) mod interrupts;
+pub mod keyboard;
 
 pub(crate) unsafe fn init(memory_allocator: &mut MemoryAllocator, rsdp_addr: usize) {
     let acpi_handler = BenchAcpiHandler::new(memory_allocator.phys_offset());

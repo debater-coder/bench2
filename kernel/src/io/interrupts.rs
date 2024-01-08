@@ -1,4 +1,3 @@
-use crate::io::drivers::apic::lapic_end_of_interrupt;
 /// # Handles IDT
 /// Even if a device uses less than 16 IRQs we still reserve 16 to keep things aligned nicely (and for prioritisation)
 ///
@@ -12,8 +11,11 @@ use crate::io::drivers::apic::lapic_end_of_interrupt;
 /// Interrupt 80 is for syscalls from userspace (not yet implemented)
 ///
 /// Interrupt FF is spurious interrupt (currently from LAPIC only)
+use crate::io::drivers::apic::lapic_end_of_interrupt;
+use crate::io::keyboard::Keyboard;
 use crate::memory::gdt;
 use lazy_static::lazy_static;
+use x86_64::instructions::port::Port;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 lazy_static! {
@@ -78,6 +80,10 @@ extern "x86-interrupt" fn lapic_timer(_interrupt_stack_frame: InterruptStackFram
 }
 
 extern "x86-interrupt" fn keyboard(_interrupt_stack_frame: InterruptStackFrame) {
+    let mut ps2_port = Port::new(0x60);
+
+    Keyboard::push_scancode(unsafe { ps2_port.read() }).unwrap_or_default();
+
     unsafe { lapic_end_of_interrupt() }
 }
 
