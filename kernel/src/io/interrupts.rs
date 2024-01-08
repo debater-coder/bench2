@@ -1,3 +1,4 @@
+use crate::io::drivers::apic::lapic_end_of_interrupt;
 /// # Handles IDT
 /// Even if a device uses less than 16 IRQs we still reserve 16 to keep things aligned nicely (and for prioritisation)
 ///
@@ -13,7 +14,7 @@
 /// Interrupt FF is spurious interrupt (currently from LAPIC only)
 use crate::memory::gdt;
 use lazy_static::lazy_static;
-use x86_64::structures::idt::InterruptDescriptorTable;
+use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 lazy_static! {
     static ref IDT: InterruptDescriptorTable = {
@@ -53,12 +54,23 @@ lazy_static! {
             idt.virtualization.set_handler_fn(virtualization);
         }
 
+        idt[0x31].set_handler_fn(lapic_timer);
+        idt[0x41].set_handler_fn(keyboard);
+
         idt
     };
 }
 
 pub fn init_idt() {
     IDT.load();
+}
+
+extern "x86-interrupt" fn lapic_timer(_interrupt_stack_frame: InterruptStackFrame) {
+    unsafe { lapic_end_of_interrupt() }
+}
+
+extern "x86-interrupt" fn keyboard(_interrupt_stack_frame: InterruptStackFrame) {
+    unsafe { lapic_end_of_interrupt() }
 }
 
 pub(super) mod exception_handlers {

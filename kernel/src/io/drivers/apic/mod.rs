@@ -96,7 +96,7 @@ impl Apic {
         unsafe { apic_base_msr.write(apic_base_msr.read() | (1 << 11)) };
 
         // Configure timer
-        lapic.configure_timer(0x30, 0xffffff, TimerDivideConfig::DivideBy16);
+        lapic.configure_timer(0x31, 0xffffff, TimerDivideConfig::DivideBy16);
 
         Apic
     }
