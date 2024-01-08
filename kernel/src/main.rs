@@ -23,7 +23,7 @@ pub static BOOTLOADER_CONFIG: BootloaderConfig = {
 bootloader_api::entry_point!(kernel_early, config = &BOOTLOADER_CONFIG);
 
 fn kernel_early(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
-    init(boot_info);
+    unsafe { init(boot_info) };
 
     println!("Hello, World!");
 

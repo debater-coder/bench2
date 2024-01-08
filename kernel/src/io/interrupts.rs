@@ -1,4 +1,4 @@
-use crate::device_manager::apic::GLOBAL_LAPIC;
+use crate::io::drivers::apic::lapic_end_of_interrupt;
 use crate::memory::gdt;
 use crate::{print, println};
 use lazy_static::lazy_static;
@@ -50,7 +50,7 @@ extern "x86-interrupt" fn keyboard_handler(_interrupt_stack_frame: InterruptStac
     let scancode: u8 = unsafe { port.read() };
     print!("{}", scancode);
 
-    GLOBAL_LAPIC.lock().as_mut().unwrap().end_of_interrupt();
+    unsafe { lapic_end_of_interrupt() };
 }
 
 extern "x86-interrupt" fn breakpoint_handler(interrupt_stack_frame: InterruptStackFrame) {
@@ -59,7 +59,8 @@ extern "x86-interrupt" fn breakpoint_handler(interrupt_stack_frame: InterruptSta
 
 extern "x86-interrupt" fn timer_handler(_interrupt_stack_frame: InterruptStackFrame) {
     print!(".");
-    GLOBAL_LAPIC.lock().as_mut().unwrap().end_of_interrupt();
+
+    unsafe { lapic_end_of_interrupt() };
 }
 
 extern "x86-interrupt" fn double_fault_handler(

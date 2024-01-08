@@ -3,17 +3,20 @@
 #![feature(abi_x86_interrupt)]
 #![feature(allocator_api)]
 
-use crate::device_manager::DeviceManager;
 use crate::gop_buffer::Writer;
 
 extern crate alloc;
 
 pub mod debug_log;
-pub mod device_manager;
 mod gop_buffer;
+pub mod io;
 mod memory;
 
-pub fn init(boot_info: &'static mut bootloader_api::BootInfo) -> DeviceManager {
+pub unsafe fn init(boot_info: &'static mut bootloader_api::BootInfo) {
+    init_inner(boot_info)
+}
+
+fn init_inner(boot_info: &'static mut bootloader_api::BootInfo) {
     x86_64::instructions::interrupts::disable();
 
     let framebuffer = boot_info
@@ -26,23 +29,24 @@ pub fn init(boot_info: &'static mut bootloader_api::BootInfo) -> DeviceManager {
 
     unsafe { Writer::init(raw_framebuffer, framebuffer_info) };
 
-    device_manager::interrupts::init_idt();
+    io::interrupts::init_idt();
 
-    let (frame_allocator, mapper) = memory::init(
-        boot_info
-            .physical_memory_offset
-            .into_option()
-            .expect("no physical memory offset"),
-        &boot_info.memory_regions,
-    );
+    let mut memory_allocator = unsafe {
+        memory::init(
+            boot_info
+                .physical_memory_offset
+                .into_option()
+                .expect("no physical memory offset"),
+            &boot_info.memory_regions,
+        )
+    };
 
-    let device_manager = DeviceManager::new(
-        frame_allocator,
-        mapper,
-        boot_info.rsdp_addr.into_option().expect("no rsdp") as usize,
-    );
+    unsafe {
+        io::init(
+            &mut memory_allocator,
+            boot_info.rsdp_addr.into_option().expect("no rsdp") as usize,
+        );
+    }
 
     x86_64::instructions::interrupts::enable();
-
-    device_manager
 }
