@@ -35,7 +35,5 @@ fn kernel_early(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
         if let Some(Unicode(key)) = keyboard.poll_next() {
             print!("{}", key);
         }
-
-        x86_64::instructions::hlt();
     }
 }
