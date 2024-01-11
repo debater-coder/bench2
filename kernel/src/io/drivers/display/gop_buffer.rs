@@ -1,45 +1,46 @@
-use bootloader_api::info::FrameBufferInfo;
+use crate::io::framebuffer::FRAMEBUFFER;
 use core::fmt;
 use lazy_static::lazy_static;
 use noto_sans_mono_bitmap::{get_raster, get_raster_width, FontWeight, RasterHeight};
-use spin::Mutex;
+use spin::{Mutex, MutexGuard};
 
 lazy_static! {
-    pub static ref WRITER: Mutex<Option<Writer>> = Mutex::new(None);
+    pub static ref WRITER: Mutex<Option<Writer<'static>>> = Mutex::new(None);
 }
 
-pub struct Writer {
+pub struct Writer<'a> {
     column: usize,
-    raw_framebuffer: &'static mut [u8],
-    framebuffer_info: FrameBufferInfo,
+    raw_framebuffer_lock: MutexGuard<'a, &'static mut [u8]>,
 }
 
-impl Writer {
-    /// # Safety
-    /// This function is unsafe because it requires `raw_framebuffer` to point to valid memory
-    pub unsafe fn init(raw_framebuffer: &'static mut [u8], framebuffer_info: FrameBufferInfo) {
+impl Writer<'_> {
+    pub unsafe fn init() {
         *WRITER.lock() = Some(Writer {
             column: 0,
-            raw_framebuffer,
-            framebuffer_info,
+            raw_framebuffer_lock: FRAMEBUFFER.try_get().unwrap().raw_framebuffer.lock(),
         });
     }
 
     fn write_pixel(&mut self, x: usize, y: usize, pixel: u8) {
-        self.raw_framebuffer[y * self.framebuffer_info.stride * 4 + x * 4] = pixel;
-        self.raw_framebuffer[y * self.framebuffer_info.stride * 4 + x * 4 + 1] = pixel;
-        self.raw_framebuffer[y * self.framebuffer_info.stride * 4 + x * 4 + 2] = pixel;
+        let stride = FRAMEBUFFER.get().unwrap().framebuffer_info.stride;
+        let raw_framebuffer = &mut self.raw_framebuffer_lock;
+
+        raw_framebuffer[y * stride * 4 + x * 4] = pixel;
+        raw_framebuffer[y * stride * 4 + x * 4 + 1] = pixel;
+        raw_framebuffer[y * stride * 4 + x * 4 + 2] = pixel;
     }
 
     pub fn write_char(&mut self, character: char) {
+        let framebuffer_info = &FRAMEBUFFER.get().unwrap().framebuffer_info;
+
         match character {
             '\n' => self.new_line(),
             character => {
-                if self.column + 16 >= self.framebuffer_info.width {
+                if self.column + 16 >= framebuffer_info.width {
                     self.new_line();
                 }
 
-                let y = self.framebuffer_info.height - 16;
+                let y = framebuffer_info.height - 16;
                 let x = self.column;
 
                 let char_raster = get_raster(character, FontWeight::Regular, RasterHeight::Size16)
@@ -65,14 +66,18 @@ impl Writer {
         }
     }
     fn new_line(&mut self) {
-        for row in 16..self.framebuffer_info.height {
-            for col in 0..self.framebuffer_info.width {
-                let pixel = self.raw_framebuffer[row * self.framebuffer_info.stride * 4 + col * 4];
+        let framebuffer_info = &FRAMEBUFFER.get().unwrap().framebuffer_info;
+
+        for row in 16..framebuffer_info.height {
+            for col in 0..framebuffer_info.width {
+                let raw_framebuffer = &mut self.raw_framebuffer_lock;
+                let pixel = raw_framebuffer[row * framebuffer_info.stride * 4 + col * 4];
+
                 self.write_pixel(col, row - 16, pixel);
             }
         }
-        for row in (self.framebuffer_info.height - 16)..self.framebuffer_info.height {
-            for col in 0..self.framebuffer_info.width {
+        for row in (framebuffer_info.height - 16)..framebuffer_info.height {
+            for col in 0..framebuffer_info.width {
                 self.write_pixel(col, row, 0);
             }
         }
@@ -81,7 +86,7 @@ impl Writer {
     }
 }
 
-impl fmt::Write for Writer {
+impl fmt::Write for Writer<'_> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.write_string(s);
         Ok(())

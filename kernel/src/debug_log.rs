@@ -1,4 +1,4 @@
-use crate::gop_buffer::WRITER;
+use crate::io::drivers::display::gop_buffer::WRITER;
 use core::fmt;
 use core::fmt::Write;
 use lazy_static::lazy_static;
